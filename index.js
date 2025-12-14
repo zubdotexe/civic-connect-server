@@ -41,6 +41,23 @@ async function run() {
             res.send(result);
         });
 
+        app.get("/latest-issues", async (req, res) => {
+            const status = req.query.status;
+            const query = {};
+
+            if (status) {
+                query.status = status;
+            }
+
+            const cursor = issueColl
+                .find(query)
+                .sort({ updatedAt: -1 })
+                .limit(6);
+            const result = await cursor.toArray();
+
+            res.send(result);
+        });
+
         
 
         // Connect the client to the server	(optional starting in v4.7)
