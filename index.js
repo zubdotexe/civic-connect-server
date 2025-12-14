@@ -33,6 +33,14 @@ async function run() {
             res.send(result);
         });
 
+        app.get("/issues/:id", async (req, res) => {
+            const issueId = req.params.id;
+            const query = { _id: new ObjectId(issueId) };
+            const result = await issueColl.findOne(query);
+
+            res.send(result);
+        });
+
         
 
         // Connect the client to the server	(optional starting in v4.7)
