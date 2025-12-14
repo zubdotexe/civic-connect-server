@@ -27,10 +27,16 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const cursor = issueColl.find();
+            const { limit, skip } = req.query;
+            const cursor = issueColl
+                .find()
+                .limit(Number(limit))
+                .skip(Number(skip));
             const result = await cursor.toArray();
 
-            res.send(result);
+            const totalIssues = await issueColl.countDocuments();
+
+            res.send({ result, total: totalIssues });
         });
 
         app.get("/issues/:id", async (req, res) => {
