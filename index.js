@@ -58,7 +58,14 @@ async function run() {
             res.send(result);
         });
 
-        
+        app.post("/issues", async (req, res) => {
+            const newIssue = req.body;
+            const createdAt = new Date();
+            newIssue.createdAt = createdAt;
+
+            const result = await issueColl.insertOne(newIssue);
+            res.send(result);
+        });
 
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
