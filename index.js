@@ -27,15 +27,17 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const { limit, skip, search } = req.query;
+            const { limit, skip, search, category } = req.query;
             const query = {};
 
-            console.log("", req.query);
+            if (category) {
+                query.category = category;
+            }
 
             if (search) {
                 query.$or = [
                     { title: { $regex: search, $options: "i" } },
-                    { category: { $regex: search, $options: "i" } },
+                    // { category: { $regex: search, $options: "i" } },
                     { location: { $regex: search, $options: "i" } },
                 ];
             }
