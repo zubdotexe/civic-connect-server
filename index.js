@@ -27,14 +27,26 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const { limit, skip } = req.query;
+            const { limit, skip, search } = req.query;
+            const query = {};
+
+            console.log("", req.query);
+
+            if (search) {
+                query.$or = [
+                    { title: { $regex: search, $options: "i" } },
+                    { category: { $regex: search, $options: "i" } },
+                    { location: { $regex: search, $options: "i" } },
+                ];
+            }
+
             const cursor = issueColl
-                .find()
+                .find(query)
                 .limit(Number(limit))
                 .skip(Number(skip));
             const result = await cursor.toArray();
 
-            const totalIssues = await issueColl.countDocuments();
+            const totalIssues = await issueColl.countDocuments(query);
 
             res.send({ result, total: totalIssues });
         });
