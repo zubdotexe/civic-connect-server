@@ -26,6 +26,20 @@ async function run() {
         const issueColl = db.collection("issues");
         const userColl = db.collection("users");
         const staffColl = db.collection("staffs");
+        const trackingColl = db.collection("trackings");
+
+        // issue tracking APIs
+        app.post("/issues/trackings", async (req, res) => {
+            const { issueId, issueStatus } = req.body;
+            const newLog = {
+                issueId,
+                issueStatus,
+                createdAt: new Date(),
+            };
+
+            const result = await trackingColl.insertOne(newLog);
+            res.send(result);
+        });
 
         // users APIs
 
