@@ -29,6 +29,18 @@ async function run() {
         const trackingColl = db.collection("trackings");
 
         // issue tracking APIs
+        app.get("/issues/trackings/:id", async (req, res) => {
+            const { id } = req.params;
+            const query = {};
+            if (id) {
+                query.issueId = id;
+            }
+
+            const result = await trackingColl.find(query).toArray();
+
+            res.send(result);
+        });
+
         app.post("/issues/trackings", async (req, res) => {
             const { issueId, issueStatus } = req.body;
             const newLog = {
