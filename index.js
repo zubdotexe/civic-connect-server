@@ -79,9 +79,35 @@ async function run() {
         });
 
         app.post("/issues", async (req, res) => {
-            const newIssue = req.body;
-            const createdAt = new Date();
-            newIssue.createdAt = createdAt;
+            const issueData = req.body;
+            const now = new Date();
+
+            const newIssue = {
+                title: issueData.title,
+                description: issueData.description,
+                category: issueData.category,
+
+                status: "pending",
+                priority: "low",
+                isBoosted: "false",
+                upvoteCount: 0,
+
+                reportedBy: {
+                    userId: null,
+                    name: null,
+                },
+
+                assignedStaff: {
+                    staffId: null,
+                    name: null,
+                },
+
+                image: issueData.image,
+                location: issueData.location,
+
+                createdAt: now,
+                updatedAt: now,
+            };
 
             const result = await issueColl.insertOne(newIssue);
             res.send(result);
