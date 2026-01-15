@@ -31,7 +31,7 @@ async function run() {
 
         app.post("/users", async (req, res) => {
             const newUser = req.body;
-            newUser.createdAt = Date.now();
+            newUser.createdAt = new Date();
 
             const query = { email: newUser.email };
 
@@ -48,7 +48,7 @@ async function run() {
         // staffs APIs
         app.post("/staffs", async (req, res) => {
             const newStaff = req.body;
-            newStaff.createdAt = Date.now();
+            newStaff.createdAt = new Date();
             newStaff.status = "pending";
             newStaff.workStatus = "unavailable";
 
@@ -132,12 +132,12 @@ async function run() {
                 upvoteCount: 0,
 
                 reportedBy: {
-                    userId: null,
-                    name: null,
+                    email: issueData.email,
+                    name: issueData.name,
                 },
 
                 assignedStaff: {
-                    staffId: null,
+                    email: null,
                     name: null,
                 },
 
