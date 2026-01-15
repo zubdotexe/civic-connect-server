@@ -24,6 +24,25 @@ async function run() {
     try {
         const db = client.db("civic_connect");
         const issueColl = db.collection("issues");
+        const userColl = db.collection("users");
+
+        // users APIs
+
+        app.post("/users", async (req, res) => {
+            const newUser = req.body;
+            newUser.createdAt = Date.now();
+
+            const query = { email: newUser.email };
+
+            const userExist = await userColl.findOne(query);
+
+            if (!userExist) {
+                const result = await userColl.insertOne(newUser);
+                return res.send(result);
+            }
+
+            res.send({ message: "user already exists" });
+        });
 
         // issues APIs
         app.get("/issues", async (req, res) => {
