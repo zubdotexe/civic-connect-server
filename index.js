@@ -25,6 +25,7 @@ async function run() {
         const db = client.db("civic_connect");
         const issueColl = db.collection("issues");
         const userColl = db.collection("users");
+        const staffColl = db.collection("staffs");
 
         // users APIs
 
@@ -42,6 +43,25 @@ async function run() {
             }
 
             res.send({ message: "user already exists" });
+        });
+
+        // staffs APIs
+        app.post("/staffs", async (req, res) => {
+            const newStaff = req.body;
+            newStaff.createdAt = Date.now();
+            newStaff.status = "pending";
+            newStaff.workStatus = "unavailable";
+
+            const query = { email: newStaff.email };
+
+            const staffExist = await staffColl.findOne(query);
+
+            if (!staffExist) {
+                const result = await staffColl.insertOne(newStaff);
+                return res.send(result);
+            }
+
+            res.send({ message: "already registered as a staff" });
         });
 
         // issues APIs
