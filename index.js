@@ -83,6 +83,22 @@ async function run() {
             res.send({ message: "user already exists" });
         });
 
+        app.patch("/users/:id", async (req, res) => {
+            const updatedInfo = req.body;
+            const { id } = req.params;
+            const query = { _id: new ObjectId(id) };
+
+            const updatedUser = {
+                $set: {
+                    displayName: updatedInfo.displayName,
+                    photoURL: updatedInfo.photoURL,
+                },
+            };
+
+            const result = await userColl.updateOne(query, updatedUser);
+            res.send(result);
+        });
+
         // staffs APIs
         app.post("/staffs", async (req, res) => {
             const newStaff = req.body;
