@@ -55,9 +55,21 @@ async function run() {
 
         // users APIs
 
+        app.get("/users", async (req, res) => {
+            const { email } = req.query;
+            const query = {};
+            if (email) {
+                query.email = email;
+            }
+
+            const result = await userColl.find(query).toArray();
+            res.send(result);
+        });
+
         app.post("/users", async (req, res) => {
             const newUser = req.body;
             newUser.createdAt = new Date();
+            newUser.isPremium = false;
 
             const query = { email: newUser.email };
 
