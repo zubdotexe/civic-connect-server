@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 require("dotenv").config();
+const admin = require("./admin");
+// const Staff = require("../models/Staff");
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -105,7 +107,41 @@ async function run() {
             const result = await staffColl.find().toArray();
             res.send(result);
         });
-        
+
+        app.post("/admin/create-staff", async (req, res) => {
+            try {
+                const { name, email, password, phone, photoURL } = req.body;
+
+                // 1️⃣ Create Firebase Auth user (NO LOGIN SWITCH)
+                const userRecord = await admin.auth().createUser({
+                    email,
+                    password,
+                    displayName: name,
+                    photoURL,
+                });
+
+                // 2️⃣ Save staff in DB
+                const newStaff = {
+                    uid: userRecord.uid,
+                    displayName: name,
+                    email,
+                    phone,
+                    photoURL,
+                    status: "active",
+                    workStatus: "available",
+                    createdAt: new Date(),
+                };
+
+                const result = await staffColl.insertOne(newStaff);
+
+                res.status(201).send(result);
+            } catch (err) {
+                res.status(400).send({
+                    message: err.message,
+                });
+            }
+        });
+
         app.post("/staffs", async (req, res) => {
             const newStaff = req.body;
             newStaff.createdAt = new Date();
