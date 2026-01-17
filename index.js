@@ -100,6 +100,12 @@ async function run() {
         });
 
         // staffs APIs
+
+        app.get("/staffs", async (req, res) => {
+            const result = await staffColl.find().toArray();
+            res.send(result);
+        });
+        
         app.post("/staffs", async (req, res) => {
             const newStaff = req.body;
             newStaff.createdAt = new Date();
