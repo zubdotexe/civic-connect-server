@@ -104,7 +104,14 @@ async function run() {
         // staffs APIs
 
         app.get("/staffs", async (req, res) => {
-            const result = await staffColl.find().toArray();
+            const { workStatus } = req.query;
+            const query = {};
+
+            if (workStatus) {
+                query.workStatus = workStatus;
+            }
+
+            const result = await staffColl.find(query).toArray();
             res.send(result);
         });
 
@@ -281,6 +288,34 @@ async function run() {
             };
 
             const result = await issueColl.insertOne(newIssue);
+            res.send(result);
+        });
+
+        app.patch("/issues/:id", async (req, res) => {
+            const { id } = req.params;
+            const assignedStaff = req.body;
+
+            const query = { _id: new ObjectId(id) };
+            const updatedInfo = {
+                $set: {
+                    "assignedStaff.name": assignedStaff.name,
+                    "assignedStaff.staffId": assignedStaff.staffId,
+                },
+            };
+
+            const result = await issueColl.updateOne(query, updatedInfo);
+
+            const staffUpdate = {
+                $set: {
+                    workStatus: "unavailable",
+                },
+            };
+            const staffQuery = { email: assignedStaff.staffId };
+            const staffResult = await staffColl.updateOne(
+                staffQuery,
+                staffUpdate,
+            );
+
             res.send(result);
         });
 
