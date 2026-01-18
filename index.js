@@ -299,22 +299,11 @@ async function run() {
             const updatedInfo = {
                 $set: {
                     "assignedStaff.name": assignedStaff.name,
-                    "assignedStaff.staffId": assignedStaff.staffId,
+                    "assignedStaff.email": assignedStaff.email,
                 },
             };
 
             const result = await issueColl.updateOne(query, updatedInfo);
-
-            const staffUpdate = {
-                $set: {
-                    workStatus: "unavailable",
-                },
-            };
-            const staffQuery = { email: assignedStaff.staffId };
-            const staffResult = await staffColl.updateOne(
-                staffQuery,
-                staffUpdate,
-            );
 
             res.send(result);
         });
