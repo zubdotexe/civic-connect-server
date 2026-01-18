@@ -190,8 +190,12 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const { limit, skip, search, category, email } = req.query;
+            const { limit, skip, search, category, email, status } = req.query;
             const query = {};
+
+            if (status) {
+                query.status = status;
+            }
 
             if (email) {
                 query["reportedBy.email"] = email;
