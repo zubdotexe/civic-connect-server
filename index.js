@@ -160,6 +160,26 @@ async function run() {
             res.send({ message: "already registered as a staff" });
         });
 
+        app.patch("/staffs/:id", async (req, res) => {
+            const { id } = req.params;
+            const query = { _id: new ObjectId(id) };
+            const updatedInfo = req.body;
+
+            const staffExist = await staffColl.findOne(query);
+
+            if (!staffExist) {
+                return res.send({ message: "staff does not exist" });
+            }
+
+            const updatedStaff = {
+                $set: updatedInfo,
+            };
+
+            const result = await staffColl.updateOne(query, updatedStaff);
+
+            res.send(result);
+        });
+
         // issues APIs
         app.get("/issues", async (req, res) => {
             const { limit, skip, search, category, email } = req.query;
@@ -257,7 +277,7 @@ async function run() {
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log(
-            "Pinged your deployment. You successfully connected to MongoDB!"
+            "Pinged your deployment. You successfully connected to MongoDB!",
         );
     } finally {
         // Ensures that the client will close when you finish/error
