@@ -44,10 +44,11 @@ async function run() {
         });
 
         app.post("/issues/trackings", async (req, res) => {
-            const { issueId, issueStatus } = req.body;
+            const { issueId, issueStatus, issueNote } = req.body;
             const newLog = {
                 issueId,
                 issueStatus,
+                issueNote,
                 createdAt: new Date(),
             };
 
@@ -304,6 +305,16 @@ async function run() {
             };
 
             const result = await issueColl.updateOne(query, updatedInfo);
+
+            res.send(result);
+        });
+
+        app.delete("/issues/:id", async (req, res) => {
+            const { id } = req.params;
+
+            const query = { _id: new ObjectId(id) };
+
+            const result = await issueColl.deleteOne(query);
 
             res.send(result);
         });
