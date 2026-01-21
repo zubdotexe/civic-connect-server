@@ -198,7 +198,8 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const { limit, skip, search, category, email, status } = req.query;
+            const { limit, skip, search, category, email, staffEmail, status } =
+                req.query;
             const query = {};
 
             if (status) {
@@ -207,6 +208,10 @@ async function run() {
 
             if (email) {
                 query["reportedBy.email"] = email;
+            }
+
+            if (staffEmail) {
+                query["assignedStaff.email"] = staffEmail;
             }
 
             if (category) {
@@ -306,6 +311,30 @@ async function run() {
 
             const result = await issueColl.updateOne(query, updatedInfo);
 
+            res.send(result);
+        });
+
+        app.patch("/issues/:id/change-status", async (req, res) => {
+            const { id } = req.params;
+            const update = req.body;
+
+            const query = { _id: new ObjectId(id) };
+            const updatedStatus = {
+                $set: {
+                    status: update.status,
+                },
+            };
+
+            const result = await issueColl.updateOne(query, updatedStatus);
+
+            const newLog = {
+                issueId: update.issueId,
+                issueStatus: update.issueStatus,
+                issueNote: update.issueNote,
+                createdAt: new Date(),
+            };
+
+            const trackingResult = await trackingColl.insertOne(newLog);
             res.send(result);
         });
 
