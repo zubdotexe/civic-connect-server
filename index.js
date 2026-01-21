@@ -198,12 +198,26 @@ async function run() {
 
         // issues APIs
         app.get("/issues", async (req, res) => {
-            const { limit, skip, search, category, email, staffEmail, status } =
-                req.query;
+            const {
+                limit,
+                skip,
+                search,
+                category,
+                email,
+                staffEmail,
+                status,
+                exceptStatus,
+            } = req.query;
             const query = {};
 
             if (status) {
                 query.status = status;
+            }
+
+            if (exceptStatus) {
+                query.status = {
+                    $ne: exceptStatus,
+                };
             }
 
             if (email) {
@@ -306,6 +320,7 @@ async function run() {
                 $set: {
                     "assignedStaff.name": assignedStaff.name,
                     "assignedStaff.email": assignedStaff.email,
+                    updatedAt: new Date(),
                 },
             };
 
@@ -322,6 +337,7 @@ async function run() {
             const updatedStatus = {
                 $set: {
                     status: update.status,
+                    updatedAt: new Date(),
                 },
             };
 
