@@ -289,7 +289,7 @@ async function run() {
 
                 status: "pending",
                 priority: "normal",
-                isBoosted: "false",
+                isBoosted: false,
                 upvotes: [],
 
                 reportedBy: {
@@ -400,6 +400,8 @@ async function run() {
             res.send(result);
         });
 
+        // payments related APIs
+
         app.post("/payments/subscribe/checkout", async (req, res) => {
             try {
                 // const user = req.user;
@@ -426,7 +428,7 @@ async function run() {
                     customer_email: user.email,
 
                     metadata: {
-                        userId: user.id,
+                        userEmail: user.email,
                         type: "SUBSCRIPTION",
                         amount: 1000,
                     },
@@ -453,16 +455,17 @@ async function run() {
                 const session =
                     await stripe.checkout.sessions.retrieve(sessionId);
                 if (session.payment_status === "paid") {
-                    const userId = session.metadata.userId;
+                    const userEmail = session.metadata.userEmail;
 
-                    const userQuery = { _id: new ObjectId(userId) };
+                    const userQuery = { email: userEmail };
                     const update = { $set: { isPremium: true } };
                     await userColl.updateOne(userQuery, update);
 
                     // Insert payment information with an atomic check (upsert)
                     const paymentInfo = {
                         sessionId,
-                        userId: userId,
+                        type: session.metadata.type,
+                        userEmail: userEmail,
                         amount: session.metadata.amount,
                         createdAt: new Date(),
                     };
@@ -475,7 +478,7 @@ async function run() {
 
                     res.send({
                         success: true,
-                        message: "subscription updated to Premium",
+                        message: "subscription updated to premium",
                     });
                 } else {
                     res.status(400).send({
@@ -488,6 +491,102 @@ async function run() {
                 res.status(500).send({
                     success: false,
                     message: "failed to update subscription",
+                });
+            }
+        });
+
+        app.post("/payments/boost-issue/checkout", async (req, res) => {
+            try {
+                // const user = req.user;
+                const boostInfo = req.body;
+
+                const session = await stripe.checkout.sessions.create({
+                    mode: "payment",
+                    line_items: [
+                        {
+                            price_data: {
+                                currency: "bdt",
+                                product_data: {
+                                    name: "CivicConnect Issue Boost",
+                                    description:
+                                        "Boosted issues get high priority!",
+                                },
+                                unit_amount: 100 * 100, // 1 taka = 100 poysha
+                            },
+                            quantity: 1,
+                        },
+                    ],
+
+                    customer_email: boostInfo.email,
+
+                    metadata: {
+                        userEmail: boostInfo.email,
+                        issueId: boostInfo.issueId,
+                        type: "PAYMENT",
+                        amount: 100,
+                    },
+
+                    success_url: `${process.env.CLIENT_URL}/dashboard/boost-success?session_id={CHECKOUT_SESSION_ID}`,
+                    cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
+                });
+
+                res.send({
+                    url: session.url,
+                });
+            } catch (err) {
+                console.error("checkout session error:", err);
+                res.status(500).send({
+                    message: "failed to create checkout session",
+                });
+            }
+        });
+
+        app.patch("/update-boost", async (req, res) => {
+            try {
+                const { sessionId } = req.body;
+
+                const session =
+                    await stripe.checkout.sessions.retrieve(sessionId);
+                if (session.payment_status === "paid") {
+                    const issueId = session.metadata.issueId;
+
+                    const issueQuery = { _id: new ObjectId(issueId) };
+                    const update = {
+                        $set: { isBoosted: true, priority: "high" },
+                    };
+                    await issueColl.updateOne(issueQuery, update);
+
+                    // Insert payment information with an atomic check (upsert)
+                    const paymentInfo = {
+                        sessionId,
+                        type: session.metadata.type,
+                        userEmail: session.metadata.userEmail,
+                        issueId: session.metadata.issueId,
+                        amount: session.metadata.amount,
+                        createdAt: new Date(),
+                    };
+
+                    const result = await paymentColl.findOneAndUpdate(
+                        { sessionId: sessionId }, // Check for existing sessionId
+                        { $setOnInsert: paymentInfo }, // Insert only if not found
+                        { upsert: true }, // Perform upsert (insert if not found)
+                    );
+
+                    res.send({
+                        success: true,
+                        message: "issue bossted successfully",
+                    });
+                } else {
+                    res.status(400).send({
+                        success: false,
+                        message: "payment failed",
+                    });
+                }
+            } catch (err) {
+                console.error("error boosting issue:", err);
+                res.status(500).send({
+                    success: false,
+                    message: "failed to boost issue",
                 });
             }
         });
