@@ -12,6 +12,7 @@ app.use(express.json());
 app.use(cors());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.iq0iryo.mongodb.net/?appName=Cluster0`;
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -29,6 +30,7 @@ async function run() {
         const userColl = db.collection("users");
         const staffColl = db.collection("staffs");
         const trackingColl = db.collection("trackings");
+        const paymentColl = db.collection("payments");
 
         // issue tracking APIs
         app.get("/issues/trackings/:id", async (req, res) => {
@@ -396,6 +398,98 @@ async function run() {
             const result = await issueColl.deleteOne(query);
 
             res.send(result);
+        });
+
+        app.post("/payments/subscribe/checkout", async (req, res) => {
+            try {
+                // const user = req.user;
+                const user = req.body;
+                console.log("user", user);
+
+                const session = await stripe.checkout.sessions.create({
+                    mode: "payment",
+                    line_items: [
+                        {
+                            price_data: {
+                                currency: "bdt",
+                                product_data: {
+                                    name: "CivicConnect Premium Subscription",
+                                    description:
+                                        "Unlimited issue reporting & priority features",
+                                },
+                                unit_amount: 100 * 1000, // 1 taka = 100 poysha
+                            },
+                            quantity: 1,
+                        },
+                    ],
+
+                    customer_email: user.email,
+
+                    metadata: {
+                        userId: user.id,
+                        type: "SUBSCRIPTION",
+                        amount: 1000,
+                    },
+
+                    success_url: `${process.env.CLIENT_URL}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+                    cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
+                });
+
+                res.send({
+                    url: session.url,
+                });
+            } catch (err) {
+                console.error("checkout session error:", err);
+                res.status(500).send({
+                    message: "failed to create checkout session",
+                });
+            }
+        });
+
+        app.patch("/update-subscription", async (req, res) => {
+            try {
+                const { sessionId } = req.body;
+
+                const session =
+                    await stripe.checkout.sessions.retrieve(sessionId);
+                if (session.payment_status === "paid") {
+                    const userId = session.metadata.userId;
+
+                    const userQuery = { _id: new ObjectId(userId) };
+                    const update = { $set: { isPremium: true } };
+                    await userColl.updateOne(userQuery, update);
+
+                    // Insert payment information with an atomic check (upsert)
+                    const paymentInfo = {
+                        sessionId,
+                        userId: userId,
+                        amount: session.metadata.amount,
+                        createdAt: new Date(),
+                    };
+
+                    const result = await paymentColl.findOneAndUpdate(
+                        { sessionId: sessionId }, // Check for existing sessionId
+                        { $setOnInsert: paymentInfo }, // Insert only if not found
+                        { upsert: true }, // Perform upsert (insert if not found)
+                    );
+
+                    res.send({
+                        success: true,
+                        message: "subscription updated to Premium",
+                    });
+                } else {
+                    res.status(400).send({
+                        success: false,
+                        message: "payment failed",
+                    });
+                }
+            } catch (err) {
+                console.error("error updating subscription:", err);
+                res.status(500).send({
+                    success: false,
+                    message: "failed to update subscription",
+                });
+            }
         });
 
         // Connect the client to the server	(optional starting in v4.7)
