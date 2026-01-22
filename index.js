@@ -286,9 +286,9 @@ async function run() {
                 category: issueData.category,
 
                 status: "pending",
-                priority: "low",
+                priority: "normal",
                 isBoosted: "false",
-                upvoteCount: 0,
+                upvotes: [],
 
                 reportedBy: {
                     email: issueData.email,
@@ -352,6 +352,40 @@ async function run() {
 
             const trackingResult = await trackingColl.insertOne(newLog);
             res.send(result);
+        });
+
+        app.patch("/issues/:id/upvote", async (req, res) => {
+            const { id } = req.params;
+            const { userEmail } = req.body;
+
+            const query = {
+                _id: new ObjectId(id),
+                "reportedBy.email": { $ne: userEmail },
+                upvotes: { $ne: userEmail },
+            };
+
+            const update = {
+                $addToSet: { upvotes: userEmail },
+            };
+
+            const result = await issueColl.updateOne(query, update);
+
+            if (result.matchedCount === 0) {
+                return res.send({
+                    message: "Already upvoted or cannot upvote your own issue",
+                    alreadyUpvoted: true,
+                });
+            }
+
+            const updatedIssue = await issueColl.findOne({
+                _id: new ObjectId(id),
+            });
+
+            res.send({
+                message: "Upvoted successfully",
+                alreadyUpvoted: false,
+                totalUpvotes: updatedIssue.upvotes.length,
+            });
         });
 
         app.delete("/issues/:id", async (req, res) => {
