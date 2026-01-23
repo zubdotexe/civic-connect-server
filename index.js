@@ -573,6 +573,19 @@ async function run() {
                         { upsert: true }, // Perform upsert (insert if not found)
                     );
 
+                    const text = "Issue boosted";
+                    const newLog = {
+                        issueId,
+                        issueNote: text,
+                        createdAt: new Date(),
+                    };
+
+                    const trackingResult = await trackingColl.findOneAndUpdate(
+                        { issueNote: text },
+                        { $setOnInsert: newLog },
+                        { upsert: true },
+                    );
+
                     res.send({
                         success: true,
                         message: "issue bossted successfully",
