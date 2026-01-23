@@ -760,6 +760,51 @@ async function run() {
             res.send({ totalAssignedIssues, byStatus, todayTasksResult });
         });
 
+        app.get("/stats/admin", async (req, res) => {
+            // issue stats
+            const issuePipeline = [
+                {
+                    $group: {
+                        _id: "$status",
+                        count: { $sum: 1 },
+                    },
+                },
+            ];
+
+            const issueStats = await issueColl
+                .aggregate(issuePipeline)
+                .toArray();
+
+            const totalIssues = issueStats.reduce(
+                (sum, item) => sum + item.count,
+                0,
+            );
+
+            const byStatus = {};
+
+            issueStats.forEach((item) => {
+                byStatus[item._id] = item.count;
+            });
+
+            // payment stats
+            const paymentPipeline = [
+                {
+                    $group: {
+                        _id: null,
+                        totalReceived: { $sum: { $toDouble: "$amount" } },
+                    },
+                },
+            ];
+
+            const paymentStats = await paymentColl
+                .aggregate(paymentPipeline)
+                .toArray();
+
+            const totalReceived = paymentStats[0]?.totalReceived || 0;
+
+            res.send({ totalIssues, byStatus, totalReceived });
+        });
+
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         // Send a ping to confirm a successful connection
