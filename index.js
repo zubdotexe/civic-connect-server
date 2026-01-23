@@ -650,6 +650,103 @@ async function run() {
             res.send({ totalIssues, byStatus, totalPaid });
         });
 
+        app.get("/stats/staffs", async (req, res) => {
+            const { email } = req.query;
+
+            const statsPipeline = [
+                {
+                    $match: {
+                        "assignedStaff.email": email,
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$status",
+                        count: { $sum: 1 },
+                    },
+                },
+            ];
+
+            const issueStats = await issueColl
+                .aggregate(statsPipeline)
+                .toArray();
+
+            const totalAssignedIssues = issueStats.reduce(
+                (sum, item) => sum + item.count,
+                0,
+            );
+
+            const byStatus = {};
+
+            issueStats.forEach((item) => {
+                byStatus[item._id] = item.count;
+            });
+
+            const today = new Date();
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+            const todayTasksPipeline = [
+                {
+                    $match: {
+                        // issueStatus: "pending",
+                        issueNote: {
+                            $regex: "assigned to Staff",
+                        },
+                        createdAt: {
+                            $gte: startOfDay,
+                            $lte: endOfDay,
+                        },
+                    },
+                },
+                {
+                    $addFields: {
+                        // Convert string issueId to ObjectId
+                        convertedIssueId: {
+                            $convert: {
+                                input: "$issueId",
+                                to: "objectId",
+                                onError: null,
+                                onNull: null,
+                            },
+                        },
+                    },
+                },
+                {
+                    $lookup: {
+                        from: "issues",
+                        localField: "convertedIssueId",
+                        foreignField: "_id",
+                        as: "issue",
+                    },
+                },
+                {
+                    $unwind: "$issue",
+                },
+                {
+                    $match: {
+                        "issue.assignedStaff.email": email,
+                    },
+                },
+                {
+                    $project: {
+                        _id: "$convertedIssueId",
+                        title: "$issue.title",
+                    },
+                },
+            ];
+
+            const todayTasksResult = await trackingColl
+                .aggregate(todayTasksPipeline)
+                .toArray();
+
+            // const todayTasks = todayTasksResult.reduce(
+            //     (sum) => sum + 1,
+            //     0,
+            // );
+            res.send({ totalAssignedIssues, byStatus, todayTasksResult });
+        });
+
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         // Send a ping to confirm a successful connection
