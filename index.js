@@ -779,6 +779,26 @@ async function run() {
             return await issueColl.aggregate(pipeline).toArray();
         }
 
+        async function getLatestUsers(limit = 3) {
+            const pipeline = [
+                {
+                    $sort: { createdAt: -1 },
+                },
+                {
+                    $limit: limit,
+                },
+                {
+                    $project: {
+                        email: 1,
+                        displayName: 1,
+                        isPremium: 1,
+                    },
+                },
+            ];
+
+            return await userColl.aggregate(pipeline).toArray();
+        }
+
         app.get("/stats/admin", async (req, res) => {
             // issue stats
             const issuePipeline = [
@@ -822,8 +842,15 @@ async function run() {
             const totalReceived = paymentStats[0]?.totalReceived || 0;
 
             const latestIssues = await getLatestIssues();
+            const latestUsers = await getLatestUsers();
 
-            res.send({ totalIssues, byStatus, totalReceived, latestIssues });
+            res.send({
+                totalIssues,
+                byStatus,
+                totalReceived,
+                latestIssues,
+                latestUsers,
+            });
         });
 
         // Connect the client to the server	(optional starting in v4.7)
