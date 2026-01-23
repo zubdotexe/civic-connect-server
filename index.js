@@ -799,6 +799,26 @@ async function run() {
             return await userColl.aggregate(pipeline).toArray();
         }
 
+        async function getLatestPayments(limit = 3) {
+            const pipeline = [
+                {
+                    $sort: { createdAt: -1 },
+                },
+                {
+                    $limit: limit,
+                },
+                {
+                    $project: {
+                        userEmail: 1,
+                        type: 1,
+                        amount: 1,
+                    },
+                },
+            ];
+
+            return await paymentColl.aggregate(pipeline).toArray();
+        }
+
         app.get("/stats/admin", async (req, res) => {
             // issue stats
             const issuePipeline = [
@@ -843,6 +863,7 @@ async function run() {
 
             const latestIssues = await getLatestIssues();
             const latestUsers = await getLatestUsers();
+            const latestPayments = await getLatestPayments();
 
             res.send({
                 totalIssues,
@@ -850,6 +871,7 @@ async function run() {
                 totalReceived,
                 latestIssues,
                 latestUsers,
+                latestPayments,
             });
         });
 
