@@ -760,6 +760,25 @@ async function run() {
             res.send({ totalAssignedIssues, byStatus, todayTasksResult });
         });
 
+        async function getLatestIssues(limit = 3) {
+            const pipeline = [
+                {
+                    $sort: { createdAt: -1 },
+                },
+                {
+                    $limit: limit,
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        title: 1,
+                    },
+                },
+            ];
+
+            return await issueColl.aggregate(pipeline).toArray();
+        }
+
         app.get("/stats/admin", async (req, res) => {
             // issue stats
             const issuePipeline = [
@@ -802,7 +821,9 @@ async function run() {
 
             const totalReceived = paymentStats[0]?.totalReceived || 0;
 
-            res.send({ totalIssues, byStatus, totalReceived });
+            const latestIssues = await getLatestIssues();
+
+            res.send({ totalIssues, byStatus, totalReceived, latestIssues });
         });
 
         // Connect the client to the server	(optional starting in v4.7)
