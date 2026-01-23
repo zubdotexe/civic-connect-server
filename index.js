@@ -244,6 +244,7 @@ async function run() {
 
             const cursor = issueColl
                 .find(query)
+                .sort({ isBoosted: -1, createdAt: 1 })
                 .limit(Number(limit))
                 .skip(Number(skip));
             const result = await cursor.toArray();
@@ -589,6 +590,64 @@ async function run() {
                     message: "failed to boost issue",
                 });
             }
+        });
+
+        // stats related APIs
+        app.get("/stats/users", async (req, res) => {
+            const { email } = req.query;
+
+            // issues stats
+            const issuePipeline = [
+                {
+                    $match: {
+                        "reportedBy.email": email,
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$status",
+                        count: { $sum: 1 },
+                    },
+                },
+            ];
+
+            const issueStats = await issueColl
+                .aggregate(issuePipeline)
+                .toArray();
+
+            const totalIssues = issueStats.reduce(
+                (sum, item) => sum + item.count,
+                0,
+            );
+
+            const byStatus = {};
+
+            issueStats.forEach((item) => {
+                byStatus[item._id] = item.count;
+            });
+
+            // payment stats
+            const paymentPipeline = [
+                {
+                    $match: {
+                        userEmail: email,
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalPaid: { $sum: { $toDouble: "$amount" } },
+                    },
+                },
+            ];
+
+            const paymentStats = await paymentColl
+                .aggregate(paymentPipeline)
+                .toArray();
+
+            const totalPaid = paymentStats[0]?.totalPaid || 0;
+
+            res.send({ totalIssues, byStatus, totalPaid });
         });
 
         // Connect the client to the server	(optional starting in v4.7)
