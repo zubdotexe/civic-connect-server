@@ -143,6 +143,7 @@ async function run() {
                     photoURL,
                     status: "active",
                     workStatus: "available",
+                    role: "staff",
                     createdAt: new Date(),
                 };
 
@@ -200,6 +201,25 @@ async function run() {
 
             const result = await staffColl.deleteOne(query);
             res.send(result);
+        });
+
+        app.get("/user/role/:email", async (req, res) => {
+            const { email } = req.params;
+            const query = { email: email };
+
+            const staff = await staffColl.findOne(query);
+
+            if (staff) {
+                return res.send({ role: staff.role || "staff" });
+            }
+
+            const user = await userColl.findOne(query);
+
+            if (user) {
+                return res.send({ role: user.role || "user" });
+            }
+
+            res.send({ message: "user not found" });
         });
 
         // issues APIs
@@ -585,7 +605,7 @@ async function run() {
                     };
 
                     const trackingResult = await trackingColl.findOneAndUpdate(
-                        { issueNote: text },
+                        { issueId: issueId, issueNote: text },
                         { $setOnInsert: newLog },
                         { upsert: true },
                     );
