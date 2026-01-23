@@ -107,11 +107,15 @@ async function run() {
         // staffs APIs
 
         app.get("/staffs", async (req, res) => {
-            const { workStatus } = req.query;
+            const { workStatus, email } = req.query;
             const query = {};
 
             if (workStatus) {
                 query.workStatus = workStatus;
+            }
+
+            if (email) {
+                query.email = email;
             }
 
             const result = await staffColl.find(query).toArray();
