@@ -75,6 +75,7 @@ async function run() {
             const newUser = req.body;
             newUser.createdAt = new Date();
             newUser.isPremium = false;
+            newUser.role = "user";
 
             const query = { email: newUser.email };
 
@@ -89,18 +90,31 @@ async function run() {
         });
 
         app.patch("/users/:id", async (req, res) => {
-            const updatedInfo = req.body;
+            // const updatedInfo = req.body;
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
+            const updates = {};
 
-            const updatedUser = {
-                $set: {
-                    displayName: updatedInfo.displayName,
-                    photoURL: updatedInfo.photoURL,
-                },
-            };
+            if (req.body.displayName !== undefined) {
+                updates.displayName = req.body.displayName;
+            }
 
-            const result = await userColl.updateOne(query, updatedUser);
+            if (req.body.photoURL !== undefined) {
+                updates.photoURL = req.body.photoURL;
+            }
+
+            if (req.body.isBlocked !== undefined) {
+                updates.isBlocked = req.body.isBlocked;
+            }
+
+            // const updatedUser = {
+            //     $set: {
+            //         displayName: updatedInfo.displayName,
+            //         photoURL: updatedInfo.photoURL,
+            //     },
+            // };
+
+            const result = await userColl.updateOne(query, { $set: updates });
             res.send(result);
         });
 
