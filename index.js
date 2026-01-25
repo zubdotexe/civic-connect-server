@@ -354,18 +354,41 @@ async function run() {
 
         app.patch("/issues/:id", async (req, res) => {
             const { id } = req.params;
-            const assignedStaff = req.body;
+            const updatedInfo = req.body;
 
             const query = { _id: new ObjectId(id) };
-            const updatedInfo = {
-                $set: {
-                    "assignedStaff.name": assignedStaff.name,
-                    "assignedStaff.email": assignedStaff.email,
-                    updatedAt: new Date(),
-                },
-            };
 
-            const result = await issueColl.updateOne(query, updatedInfo);
+            console.log("updatedInfo", updatedInfo);
+            const updates = {};
+            if (updatedInfo.name) {
+                updates["assignedStaff.name"] = updatedInfo.name;
+            }
+
+            if (updatedInfo.email) {
+                updates["assignedStaff.email"] = updatedInfo.email;
+            }
+
+            if (updatedInfo.title) {
+                updates.title = updatedInfo.title;
+            }
+
+            if (updatedInfo.description) {
+                updates.description = updatedInfo.description;
+            }
+
+            if (updatedInfo.photoURL) {
+                updates.image = updatedInfo.photoURL;
+            }
+
+            if (updatedInfo.category) {
+                updates.category = updatedInfo.category;
+            }
+
+            if (updatedInfo.location) {
+                updates.location = updatedInfo.location;
+            }
+
+            const result = await issueColl.updateOne(query, { $set: updates });
 
             res.send(result);
         });
