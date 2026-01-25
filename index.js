@@ -464,6 +464,16 @@ async function run() {
 
         // payments related APIs
 
+        app.get("/payments", async (req, res) => {
+            const { userEmail } = req.query;
+            const query = {};
+            if (userEmail) {
+                query.userEmail = userEmail;
+            }
+            const result = await paymentColl.find(query).toArray();
+            res.send(result);
+        });
+
         app.post("/payments/subscribe/checkout", async (req, res) => {
             try {
                 // const user = req.user;
