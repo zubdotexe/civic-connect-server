@@ -50,6 +50,20 @@ async function run() {
         const trackingColl = db.collection("trackings");
         const paymentColl = db.collection("payments");
 
+        const verifyAdminToken = async (req, res, next) => {
+            const email = req.decoded_email;
+            const query = { email };
+            const user = await staffColl.findOne(query);
+
+            console.log("user", user);
+
+            if (!user || user.role !== "admin") {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+
+            next();
+        };
+
         // issue tracking APIs
         app.get("/issues/trackings/:id", async (req, res) => {
             const { id } = req.params;
@@ -157,6 +171,7 @@ async function run() {
         app.post(
             "/admin/create-staff",
             verifyFirebaseToken,
+            verifyAdminToken,
             async (req, res) => {
                 try {
                     const { name, email, password, phone, photoURL } = req.body;
@@ -231,13 +246,18 @@ async function run() {
             res.send(result);
         });
 
-        app.delete("/staffs/:id", verifyFirebaseToken, async (req, res) => {
-            const { id } = req.params;
-            const query = { _id: new ObjectId(id) };
+        app.delete(
+            "/staffs/:id",
+            verifyFirebaseToken,
+            verifyAdminToken,
+            async (req, res) => {
+                const { id } = req.params;
+                const query = { _id: new ObjectId(id) };
 
-            const result = await staffColl.deleteOne(query);
-            res.send(result);
-        });
+                const result = await staffColl.deleteOne(query);
+                res.send(result);
+            },
+        );
 
         app.get("/user/role/:email", verifyFirebaseToken, async (req, res) => {
             const { email } = req.params;
@@ -933,61 +953,66 @@ async function run() {
             return await paymentColl.aggregate(pipeline).toArray();
         }
 
-        app.get("/stats/admin", verifyFirebaseToken, async (req, res) => {
-            // issue stats
-            const issuePipeline = [
-                {
-                    $group: {
-                        _id: "$status",
-                        count: { $sum: 1 },
+        app.get(
+            "/stats/admin",
+            verifyFirebaseToken,
+            verifyAdminToken,
+            async (req, res) => {
+                // issue stats
+                const issuePipeline = [
+                    {
+                        $group: {
+                            _id: "$status",
+                            count: { $sum: 1 },
+                        },
                     },
-                },
-            ];
+                ];
 
-            const issueStats = await issueColl
-                .aggregate(issuePipeline)
-                .toArray();
+                const issueStats = await issueColl
+                    .aggregate(issuePipeline)
+                    .toArray();
 
-            const totalIssues = issueStats.reduce(
-                (sum, item) => sum + item.count,
-                0,
-            );
+                const totalIssues = issueStats.reduce(
+                    (sum, item) => sum + item.count,
+                    0,
+                );
 
-            const byStatus = {};
+                const byStatus = {};
 
-            issueStats.forEach((item) => {
-                byStatus[item._id] = item.count;
-            });
+                issueStats.forEach((item) => {
+                    byStatus[item._id] = item.count;
+                });
 
-            // payment stats
-            const paymentPipeline = [
-                {
-                    $group: {
-                        _id: null,
-                        totalReceived: { $sum: { $toDouble: "$amount" } },
+                // payment stats
+                const paymentPipeline = [
+                    {
+                        $group: {
+                            _id: null,
+                            totalReceived: { $sum: { $toDouble: "$amount" } },
+                        },
                     },
-                },
-            ];
+                ];
 
-            const paymentStats = await paymentColl
-                .aggregate(paymentPipeline)
-                .toArray();
+                const paymentStats = await paymentColl
+                    .aggregate(paymentPipeline)
+                    .toArray();
 
-            const totalReceived = paymentStats[0]?.totalReceived || 0;
+                const totalReceived = paymentStats[0]?.totalReceived || 0;
 
-            const latestIssues = await getLatestIssues();
-            const latestUsers = await getLatestUsers();
-            const latestPayments = await getLatestPayments();
+                const latestIssues = await getLatestIssues();
+                const latestUsers = await getLatestUsers();
+                const latestPayments = await getLatestPayments();
 
-            res.send({
-                totalIssues,
-                byStatus,
-                totalReceived,
-                latestIssues,
-                latestUsers,
-                latestPayments,
-            });
-        });
+                res.send({
+                    totalIssues,
+                    byStatus,
+                    totalReceived,
+                    latestIssues,
+                    latestUsers,
+                    latestPayments,
+                });
+            },
+        );
 
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
