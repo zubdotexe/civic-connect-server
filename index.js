@@ -11,6 +11,24 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 app.use(express.json());
 app.use(cors());
 
+const verifyFirebaseToken = async (req, res, next) => {
+    const token = req.headers.authorization;
+
+    if (!token) {
+        return res.status(401).send({ message: "unauthorized access" });
+    }
+
+    try {
+        const idToken = token.split(" ")[1];
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        req.decoded_email = decoded.email;
+    } catch (err) {
+        return res.status(401).send({ message: "unauthorized access" });
+    }
+
+    next();
+};
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.iq0iryo.mongodb.net/?appName=Cluster0`;
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
@@ -45,7 +63,7 @@ async function run() {
             res.send(result);
         });
 
-        app.post("/issues/trackings", async (req, res) => {
+        app.post("/issues/trackings", verifyFirebaseToken, async (req, res) => {
             const { issueId, issueStatus, issueNote } = req.body;
             const newLog = {
                 issueId,
@@ -60,7 +78,7 @@ async function run() {
 
         // users APIs
 
-        app.get("/users", async (req, res) => {
+        app.get("/users", verifyFirebaseToken, async (req, res) => {
             const { email } = req.query;
             const query = {};
             if (email) {
@@ -89,7 +107,7 @@ async function run() {
             res.send({ message: "user already exists" });
         });
 
-        app.patch("/users/:id", async (req, res) => {
+        app.patch("/users/:id", verifyFirebaseToken, async (req, res) => {
             // const updatedInfo = req.body;
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
@@ -120,7 +138,7 @@ async function run() {
 
         // staffs APIs
 
-        app.get("/staffs", async (req, res) => {
+        app.get("/staffs", verifyFirebaseToken, async (req, res) => {
             const { workStatus, email } = req.query;
             const query = {};
 
@@ -136,60 +154,64 @@ async function run() {
             res.send(result);
         });
 
-        app.post("/admin/create-staff", async (req, res) => {
-            try {
-                const { name, email, password, phone, photoURL } = req.body;
+        app.post(
+            "/admin/create-staff",
+            verifyFirebaseToken,
+            async (req, res) => {
+                try {
+                    const { name, email, password, phone, photoURL } = req.body;
 
-                // 1️⃣ Create Firebase Auth user (NO LOGIN SWITCH)
-                const userRecord = await admin.auth().createUser({
-                    email,
-                    password,
-                    displayName: name,
-                    photoURL,
-                });
+                    // 1️⃣ Create Firebase Auth user (NO LOGIN SWITCH)
+                    const userRecord = await admin.auth().createUser({
+                        email,
+                        password,
+                        displayName: name,
+                        photoURL,
+                    });
 
-                // 2️⃣ Save staff in DB
-                const newStaff = {
-                    uid: userRecord.uid,
-                    displayName: name,
-                    email,
-                    phone,
-                    photoURL,
-                    status: "active",
-                    workStatus: "available",
-                    role: "staff",
-                    createdAt: new Date(),
-                };
+                    // 2️⃣ Save staff in DB
+                    const newStaff = {
+                        uid: userRecord.uid,
+                        displayName: name,
+                        email,
+                        phone,
+                        photoURL,
+                        status: "active",
+                        workStatus: "available",
+                        role: "staff",
+                        createdAt: new Date(),
+                    };
 
-                const result = await staffColl.insertOne(newStaff);
+                    const result = await staffColl.insertOne(newStaff);
 
-                res.status(201).send(result);
-            } catch (err) {
-                res.status(400).send({
-                    message: err.message,
-                });
-            }
-        });
+                    res.status(201).send(result);
+                } catch (err) {
+                    res.status(400).send({
+                        message: err.message,
+                    });
+                }
+            },
+        );
 
-        app.post("/staffs", async (req, res) => {
-            const newStaff = req.body;
-            newStaff.createdAt = new Date();
-            newStaff.status = "pending";
-            newStaff.workStatus = "unavailable";
+        // app.post("/staffs", async (req, res) => {
+        //     const newStaff = req.body;
+        //     newStaff.createdAt = new Date();
+        //     newStaff.status = "pending";
+        //     newStaff.workStatus = "unavailable";
 
-            const query = { email: newStaff.email };
+        //     const query = { email: newStaff.email };
 
-            const staffExist = await staffColl.findOne(query);
+        //     const staffExist = await staffColl.findOne(query);
 
-            if (!staffExist) {
-                const result = await staffColl.insertOne(newStaff);
-                return res.send(result);
-            }
+        //     if (!staffExist) {
+        //         const result = await staffColl.insertOne(newStaff);
+        //         return res.send(result);
+        //     }
 
-            res.send({ message: "already registered as a staff" });
-        });
+        //     res.send({ message: "already registered as a staff" });
+        // });
 
-        app.patch("/staffs/:id", async (req, res) => {
+        app.patch("/staffs/:id", verifyFirebaseToken, async (req, res) => {
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
             const updatedInfo = req.body;
@@ -209,7 +231,7 @@ async function run() {
             res.send(result);
         });
 
-        app.delete("/staffs/:id", async (req, res) => {
+        app.delete("/staffs/:id", verifyFirebaseToken, async (req, res) => {
             const { id } = req.params;
             const query = { _id: new ObjectId(id) };
 
@@ -217,7 +239,7 @@ async function run() {
             res.send(result);
         });
 
-        app.get("/user/role/:email", async (req, res) => {
+        app.get("/user/role/:email", verifyFirebaseToken, async (req, res) => {
             const { email } = req.params;
             const query = { email: email };
 
@@ -292,7 +314,7 @@ async function run() {
             res.send({ result, total: totalIssues });
         });
 
-        app.get("/issues/:id", async (req, res) => {
+        app.get("/issues/:id", verifyFirebaseToken, async (req, res) => {
             const issueId = req.params.id;
             const query = { _id: new ObjectId(issueId) };
             const result = await issueColl.findOne(query);
@@ -317,7 +339,7 @@ async function run() {
             res.send(result);
         });
 
-        app.post("/issues", async (req, res) => {
+        app.post("/issues", verifyFirebaseToken, async (req, res) => {
             const issueData = req.body;
             const now = new Date();
 
@@ -352,7 +374,7 @@ async function run() {
             res.send(result);
         });
 
-        app.patch("/issues/:id", async (req, res) => {
+        app.patch("/issues/:id", verifyFirebaseToken, async (req, res) => {
             const { id } = req.params;
             const updatedInfo = req.body;
 
@@ -393,66 +415,75 @@ async function run() {
             res.send(result);
         });
 
-        app.patch("/issues/:id/change-status", async (req, res) => {
-            const { id } = req.params;
-            const update = req.body;
+        app.patch(
+            "/issues/:id/change-status",
+            verifyFirebaseToken,
+            async (req, res) => {
+                const { id } = req.params;
+                const update = req.body;
 
-            const query = { _id: new ObjectId(id) };
-            const updatedStatus = {
-                $set: {
-                    status: update.status,
-                    updatedAt: new Date(),
-                },
-            };
+                const query = { _id: new ObjectId(id) };
+                const updatedStatus = {
+                    $set: {
+                        status: update.status,
+                        updatedAt: new Date(),
+                    },
+                };
 
-            const result = await issueColl.updateOne(query, updatedStatus);
+                const result = await issueColl.updateOne(query, updatedStatus);
 
-            const newLog = {
-                issueId: update.issueId,
-                issueStatus: update.issueStatus,
-                issueNote: update.issueNote,
-                createdAt: new Date(),
-            };
+                const newLog = {
+                    issueId: update.issueId,
+                    issueStatus: update.issueStatus,
+                    issueNote: update.issueNote,
+                    createdAt: new Date(),
+                };
 
-            const trackingResult = await trackingColl.insertOne(newLog);
-            res.send(result);
-        });
+                const trackingResult = await trackingColl.insertOne(newLog);
+                res.send(result);
+            },
+        );
 
-        app.patch("/issues/:id/upvote", async (req, res) => {
-            const { id } = req.params;
-            const { userEmail } = req.body;
+        app.patch(
+            "/issues/:id/upvote",
+            verifyFirebaseToken,
+            async (req, res) => {
+                const { id } = req.params;
+                const { userEmail } = req.body;
 
-            const query = {
-                _id: new ObjectId(id),
-                "reportedBy.email": { $ne: userEmail },
-                upvotes: { $ne: userEmail },
-            };
+                const query = {
+                    _id: new ObjectId(id),
+                    "reportedBy.email": { $ne: userEmail },
+                    upvotes: { $ne: userEmail },
+                };
 
-            const update = {
-                $addToSet: { upvotes: userEmail },
-            };
+                const update = {
+                    $addToSet: { upvotes: userEmail },
+                };
 
-            const result = await issueColl.updateOne(query, update);
+                const result = await issueColl.updateOne(query, update);
 
-            if (result.matchedCount === 0) {
-                return res.send({
-                    message: "Already upvoted or cannot upvote your own issue",
-                    alreadyUpvoted: true,
+                if (result.matchedCount === 0) {
+                    return res.send({
+                        message:
+                            "Already upvoted or cannot upvote your own issue",
+                        alreadyUpvoted: true,
+                    });
+                }
+
+                const updatedIssue = await issueColl.findOne({
+                    _id: new ObjectId(id),
                 });
-            }
 
-            const updatedIssue = await issueColl.findOne({
-                _id: new ObjectId(id),
-            });
+                res.send({
+                    message: "Upvoted successfully",
+                    alreadyUpvoted: false,
+                    totalUpvotes: updatedIssue.upvotes.length,
+                });
+            },
+        );
 
-            res.send({
-                message: "Upvoted successfully",
-                alreadyUpvoted: false,
-                totalUpvotes: updatedIssue.upvotes.length,
-            });
-        });
-
-        app.delete("/issues/:id", async (req, res) => {
+        app.delete("/issues/:id", verifyFirebaseToken, async (req, res) => {
             const { id } = req.params;
 
             const query = { _id: new ObjectId(id) };
@@ -464,7 +495,7 @@ async function run() {
 
         // payments related APIs
 
-        app.get("/payments", async (req, res) => {
+        app.get("/payments", verifyFirebaseToken, async (req, res) => {
             const { userEmail } = req.query;
             const query = {};
             if (userEmail) {
@@ -474,146 +505,158 @@ async function run() {
             res.send(result);
         });
 
-        app.post("/payments/subscribe/checkout", async (req, res) => {
-            try {
-                // const user = req.user;
-                const user = req.body;
-                console.log("user", user);
+        app.post(
+            "/payments/subscribe/checkout",
+            verifyFirebaseToken,
+            async (req, res) => {
+                try {
+                    // const user = req.user;
+                    const user = req.body;
+                    console.log("user", user);
 
-                const session = await stripe.checkout.sessions.create({
-                    mode: "payment",
-                    line_items: [
-                        {
-                            price_data: {
-                                currency: "bdt",
-                                product_data: {
-                                    name: "CivicConnect Premium Subscription",
-                                    description:
-                                        "Unlimited issue reporting & priority features",
+                    const session = await stripe.checkout.sessions.create({
+                        mode: "payment",
+                        line_items: [
+                            {
+                                price_data: {
+                                    currency: "bdt",
+                                    product_data: {
+                                        name: "CivicConnect Premium Subscription",
+                                        description:
+                                            "Unlimited issue reporting & priority features",
+                                    },
+                                    unit_amount: 100 * 1000, // 1 taka = 100 poysha
                                 },
-                                unit_amount: 100 * 1000, // 1 taka = 100 poysha
+                                quantity: 1,
                             },
-                            quantity: 1,
+                        ],
+
+                        customer_email: user.email,
+
+                        metadata: {
+                            userEmail: user.email,
+                            type: "SUBSCRIPTION",
+                            amount: 1000,
                         },
-                    ],
 
-                    customer_email: user.email,
-
-                    metadata: {
-                        userEmail: user.email,
-                        type: "SUBSCRIPTION",
-                        amount: 1000,
-                    },
-
-                    success_url: `${process.env.CLIENT_URL}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-                    cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
-                });
-
-                res.send({
-                    url: session.url,
-                });
-            } catch (err) {
-                console.error("checkout session error:", err);
-                res.status(500).send({
-                    message: "failed to create checkout session",
-                });
-            }
-        });
-
-        app.patch("/update-subscription", async (req, res) => {
-            try {
-                const { sessionId } = req.body;
-
-                const session =
-                    await stripe.checkout.sessions.retrieve(sessionId);
-                if (session.payment_status === "paid") {
-                    const userEmail = session.metadata.userEmail;
-
-                    const userQuery = { email: userEmail };
-                    const update = { $set: { isPremium: true } };
-                    await userColl.updateOne(userQuery, update);
-
-                    // Insert payment information with an atomic check (upsert)
-                    const paymentInfo = {
-                        sessionId,
-                        type: session.metadata.type,
-                        userEmail: userEmail,
-                        amount: session.metadata.amount,
-                        createdAt: new Date(),
-                    };
-
-                    const result = await paymentColl.findOneAndUpdate(
-                        { sessionId: sessionId }, // Check for existing sessionId
-                        { $setOnInsert: paymentInfo }, // Insert only if not found
-                        { upsert: true }, // Perform upsert (insert if not found)
-                    );
+                        success_url: `${process.env.CLIENT_URL}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+                        cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
+                    });
 
                     res.send({
-                        success: true,
-                        message: "subscription updated to premium",
+                        url: session.url,
                     });
-                } else {
-                    res.status(400).send({
-                        success: false,
-                        message: "payment failed",
+                } catch (err) {
+                    console.error("checkout session error:", err);
+                    res.status(500).send({
+                        message: "failed to create checkout session",
                     });
                 }
-            } catch (err) {
-                console.error("error updating subscription:", err);
-                res.status(500).send({
-                    success: false,
-                    message: "failed to update subscription",
-                });
-            }
-        });
+            },
+        );
 
-        app.post("/payments/boost-issue/checkout", async (req, res) => {
-            try {
-                // const user = req.user;
-                const boostInfo = req.body;
+        app.patch(
+            "/update-subscription",
+            verifyFirebaseToken,
+            async (req, res) => {
+                try {
+                    const { sessionId } = req.body;
 
-                const session = await stripe.checkout.sessions.create({
-                    mode: "payment",
-                    line_items: [
-                        {
-                            price_data: {
-                                currency: "bdt",
-                                product_data: {
-                                    name: "CivicConnect Issue Boost",
-                                    description:
-                                        "Boosted issues get high priority!",
+                    const session =
+                        await stripe.checkout.sessions.retrieve(sessionId);
+                    if (session.payment_status === "paid") {
+                        const userEmail = session.metadata.userEmail;
+
+                        const userQuery = { email: userEmail };
+                        const update = { $set: { isPremium: true } };
+                        await userColl.updateOne(userQuery, update);
+
+                        // Insert payment information with an atomic check (upsert)
+                        const paymentInfo = {
+                            sessionId,
+                            type: session.metadata.type,
+                            userEmail: userEmail,
+                            amount: session.metadata.amount,
+                            createdAt: new Date(),
+                        };
+
+                        const result = await paymentColl.findOneAndUpdate(
+                            { sessionId: sessionId }, // Check for existing sessionId
+                            { $setOnInsert: paymentInfo }, // Insert only if not found
+                            { upsert: true }, // Perform upsert (insert if not found)
+                        );
+
+                        res.send({
+                            success: true,
+                            message: "subscription updated to premium",
+                        });
+                    } else {
+                        res.status(400).send({
+                            success: false,
+                            message: "payment failed",
+                        });
+                    }
+                } catch (err) {
+                    console.error("error updating subscription:", err);
+                    res.status(500).send({
+                        success: false,
+                        message: "failed to update subscription",
+                    });
+                }
+            },
+        );
+
+        app.post(
+            "/payments/boost-issue/checkout",
+            verifyFirebaseToken,
+            async (req, res) => {
+                try {
+                    // const user = req.user;
+                    const boostInfo = req.body;
+
+                    const session = await stripe.checkout.sessions.create({
+                        mode: "payment",
+                        line_items: [
+                            {
+                                price_data: {
+                                    currency: "bdt",
+                                    product_data: {
+                                        name: "CivicConnect Issue Boost",
+                                        description:
+                                            "Boosted issues get high priority!",
+                                    },
+                                    unit_amount: 100 * 100, // 1 taka = 100 poysha
                                 },
-                                unit_amount: 100 * 100, // 1 taka = 100 poysha
+                                quantity: 1,
                             },
-                            quantity: 1,
+                        ],
+
+                        customer_email: boostInfo.email,
+
+                        metadata: {
+                            userEmail: boostInfo.email,
+                            issueId: boostInfo.issueId,
+                            type: "PAYMENT",
+                            amount: 100,
                         },
-                    ],
 
-                    customer_email: boostInfo.email,
+                        success_url: `${process.env.CLIENT_URL}/dashboard/boost-success?session_id={CHECKOUT_SESSION_ID}`,
+                        cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
+                    });
 
-                    metadata: {
-                        userEmail: boostInfo.email,
-                        issueId: boostInfo.issueId,
-                        type: "PAYMENT",
-                        amount: 100,
-                    },
+                    res.send({
+                        url: session.url,
+                    });
+                } catch (err) {
+                    console.error("checkout session error:", err);
+                    res.status(500).send({
+                        message: "failed to create checkout session",
+                    });
+                }
+            },
+        );
 
-                    success_url: `${process.env.CLIENT_URL}/dashboard/boost-success?session_id={CHECKOUT_SESSION_ID}`,
-                    cancel_url: `${process.env.CLIENT_URL}/dashboard/payment-cancelled`,
-                });
-
-                res.send({
-                    url: session.url,
-                });
-            } catch (err) {
-                console.error("checkout session error:", err);
-                res.status(500).send({
-                    message: "failed to create checkout session",
-                });
-            }
-        });
-
-        app.patch("/update-boost", async (req, res) => {
+        app.patch("/update-boost", verifyFirebaseToken, async (req, res) => {
             try {
                 const { sessionId } = req.body;
 
@@ -677,7 +720,7 @@ async function run() {
         });
 
         // stats related APIs
-        app.get("/stats/users", async (req, res) => {
+        app.get("/stats/users", verifyFirebaseToken, async (req, res) => {
             const { email } = req.query;
 
             // issues stats
@@ -734,7 +777,7 @@ async function run() {
             res.send({ totalIssues, byStatus, totalPaid });
         });
 
-        app.get("/stats/staffs", async (req, res) => {
+        app.get("/stats/staffs", verifyFirebaseToken, async (req, res) => {
             const { email } = req.query;
 
             const statsPipeline = [
@@ -890,7 +933,7 @@ async function run() {
             return await paymentColl.aggregate(pipeline).toArray();
         }
 
-        app.get("/stats/admin", async (req, res) => {
+        app.get("/stats/admin", verifyFirebaseToken, async (req, res) => {
             // issue stats
             const issuePipeline = [
                 {
