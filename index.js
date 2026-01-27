@@ -55,8 +55,6 @@ async function run() {
             const query = { email };
             const user = await staffColl.findOne(query);
 
-            console.log("user", user);
-
             if (!user || user.role !== "admin") {
                 return res.status(403).send({ message: "forbidden access" });
             }
@@ -400,7 +398,6 @@ async function run() {
 
             const query = { _id: new ObjectId(id) };
 
-            console.log("updatedInfo", updatedInfo);
             const updates = {};
             if (updatedInfo.name) {
                 updates["assignedStaff.name"] = updatedInfo.name;
@@ -532,7 +529,6 @@ async function run() {
                 try {
                     // const user = req.user;
                     const user = req.body;
-                    console.log("user", user);
 
                     const session = await stripe.checkout.sessions.create({
                         mode: "payment",
@@ -1015,12 +1011,12 @@ async function run() {
         );
 
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log(
-            "Pinged your deployment. You successfully connected to MongoDB!",
-        );
+        // await client.db("admin").command({ ping: 1 });
+        // console.log(
+        //     "Pinged your deployment. You successfully connected to MongoDB!",
+        // );
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
