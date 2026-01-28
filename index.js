@@ -151,11 +151,11 @@ async function run() {
         // staffs APIs
 
         app.get("/staffs", verifyFirebaseToken, async (req, res) => {
-            const { workStatus, email } = req.query;
+            const { role, email } = req.query;
             const query = {};
 
-            if (workStatus) {
-                query.workStatus = workStatus;
+            if (role) {
+                query.role = role;
             }
 
             if (email) {
@@ -506,6 +506,10 @@ async function run() {
             const query = { _id: new ObjectId(id) };
 
             const result = await issueColl.deleteOne(query);
+
+            const trackingResult = await trackingColl.deleteOne({
+                issueId: id,
+            });
 
             res.send(result);
         });
