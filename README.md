@@ -52,4 +52,4 @@ https://civic-connect-e0d60.web.app
 git clone https://github.com/zubdotexe/civic-connect-server.git
 cd civic-connect-server
 npm install
-npm run dev
+node index.js
