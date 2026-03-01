@@ -49,6 +49,7 @@ async function run() {
         const staffColl = db.collection("staffs");
         const trackingColl = db.collection("trackings");
         const paymentColl = db.collection("payments");
+        const messageColl = db.collection("messages");
 
         const verifyAdminToken = async (req, res, next) => {
             const email = req.decoded_email;
@@ -61,6 +62,37 @@ async function run() {
 
             next();
         };
+
+        app.post("/messages", async (req, res) => {
+            try {
+                const { name, email, message } = req.body;
+
+                // Basic required field check only
+                if (!name || !email || !message) {
+                    return res.status(400).send({
+                        error: "Name, email, and message are required",
+                    });
+                }
+
+                const newMessage = {
+                    name: name.trim(),
+                    email: email.trim(),
+                    message: message.trim(),
+                    createdAt: new Date(),
+                };
+
+                const result = await messageColl.insertOne(newMessage);
+                res.status(201).send({
+                    success: true,
+                    messageId: result.insertedId,
+                });
+            } catch (error) {
+                console.error("Error saving message:", error);
+                res.status(500).send({
+                    error: "Failed to save message. Please try again.",
+                });
+            }
+        });
 
         // issue tracking APIs
         app.get("/issues/trackings/:id", async (req, res) => {
